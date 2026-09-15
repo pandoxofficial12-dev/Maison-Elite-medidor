@@ -160,6 +160,7 @@
         <option value="panel">Lámina / panel (unidad rígida)</option>
         <option value="rollo">Rollo (papel de colgadura)</option>
         <option value="esquinero">Perfil / esquinero (lineal)</option>
+        <option value="diseno">Diseño / trabajo con cortes especiales</option>
       </select>
 
       <div id="addFormFields"></div>
@@ -196,23 +197,6 @@
     <div class="result-box" id="resultBox"></div>
     <button class="btn-secondary" id="btnGuardarPared" style="display:none" onclick="guardarParedEnProyecto()">Guardar esta pared en el proyecto</button>
     <div class="hint" id="resultEmpty">Aún no has calculado ninguna pared.</div>
-  </section>
-
-  <section id="previewSection" style="display:none">
-    <h2>Vista previa con tu lámina</h2>
-    <div class="hint">Sube una foto de la lámina o textura que vas a instalar, y luego toca sobre tu foto de la pared las 4 esquinas de la zona donde va — así ves cómo quedaría antes de comprar.</div>
-
-    <label>Foto o textura de la lámina/rollo</label>
-    <label for="texturaInput" class="photo-drop" id="texturaDrop">Toca para subir la textura</label>
-    <input type="file" id="texturaInput" accept="image/*" style="display:none" onchange="handleTextura(event)">
-
-    <div class="hint" id="previewInstruccion">Sube primero la textura de arriba.</div>
-    <canvas id="previewCanvas"></canvas>
-
-    <button class="btn-ghost" style="width:100%; margin-top:4px;" onclick="reiniciarPuntos()">Reiniciar puntos</button>
-    <button class="btn-primary" style="margin-top:8px;" id="btnGenerarPreview" onclick="generarVistaPrevia()" disabled>Generar vista previa</button>
-
-    <canvas id="resultCanvas" style="display:none; margin-top:14px;"></canvas>
   </section>
 
 </div>
@@ -314,12 +298,27 @@ function renderProyectoDetalle(){
   const totales = {};
   proyecto.paredes.forEach(p => {
     const key = p.materialNombre + '|' + p.unidad;
-    totales[key] = (totales[key] || 0) + p.cantidad;
+    if(!totales[key]) totales[key] = {cantidad:0, precioUnitario:p.precioUnitario||0, esEstimado: !!p.esEstimado};
+    totales[key].cantidad += p.cantidad;
   });
-  const filasTotales = Object.entries(totales).map(([key, cant]) => {
+  const filasTotales = Object.entries(totales).map(([key, t]) => {
     const [nombre, unidad] = key.split('|');
-    return `<div class="total-row"><span>${nombre}</span><span>${cant} ${unidad}</span></div>`;
+    const sub = t.precioUnitario ? ` — ${t.esEstimado ? 'desde ' : ''}$${(t.cantidad*t.precioUnitario).toLocaleString()}` : '';
+    return `<div class="total-row"><span>${nombre}</span><span>${t.cantidad} ${unidad}${sub}</span></div>`;
   }).join('') || '<div class="empty-state">Sin materiales todavía.</div>';
+
+  let totalExacto = 0, totalEstimado = 0;
+  Object.values(totales).forEach(t => {
+    const sub = t.cantidad*t.precioUnitario;
+    if(t.esEstimado) totalEstimado += sub; else totalExacto += sub;
+  });
+  let filaCotizacion = '';
+  if(totalExacto > 0){
+    filaCotizacion += `<div class="total-row" style="font-weight:700; border-top:2px solid var(--ink); margin-top:4px; padding-top:8px;"><span>Cotización instalación</span><span>$${totalExacto.toLocaleString()}</span></div>`;
+  }
+  if(totalEstimado > 0){
+    filaCotizacion += `<div class="total-row" style="font-weight:700;"><span>+ Diseño / cortes especiales</span><span>desde $${totalEstimado.toLocaleString()}</span></div>`;
+  }
 
   el.innerHTML = `
     <div class="divider"></div>
@@ -331,6 +330,7 @@ function renderProyectoDetalle(){
     <div class="divider"></div>
     <div class="hint">Total a comprar (todas las paredes de este proyecto)</div>
     ${filasTotales}
+    ${filaCotizacion}
     <button class="btn-ghost" style="width:100%; margin-top:12px;" onclick="copiarResumen()">Copiar resumen</button>
     <button class="btn-secondary" onclick="enviarPorWhatsapp()">Enviar por WhatsApp</button>
   `;
@@ -348,13 +348,19 @@ function construirResumenTexto(){
   const totales = {};
   proyecto.paredes.forEach(p => {
     const key = p.materialNombre + '|' + p.unidad;
-    totales[key] = (totales[key] || 0) + p.cantidad;
+    if(!totales[key]) totales[key] = {cantidad:0, precioUnitario:p.precioUnitario||0, esEstimado: !!p.esEstimado};
+    totales[key].cantidad += p.cantidad;
   });
   txt += `\nTOTAL A COMPRAR:\n`;
-  Object.entries(totales).forEach(([key, cant]) => {
+  let totalExacto = 0, totalEstimado = 0;
+  Object.entries(totales).forEach(([key, t]) => {
     const [nombre, unidad] = key.split('|');
-    txt += `- ${nombre}: ${cant} ${unidad}\n`;
+    const sub = t.cantidad*t.precioUnitario;
+    if(t.esEstimado) totalEstimado += sub; else totalExacto += sub;
+    txt += `- ${nombre}: ${t.cantidad} ${unidad}${t.precioUnitario ? ' — '+(t.esEstimado?'desde ':'')+'$'+sub.toLocaleString() : ''}\n`;
   });
+  if(totalExacto > 0) txt += `\nCOTIZACIÓN INSTALACIÓN: $${totalExacto.toLocaleString()}\n`;
+  if(totalEstimado > 0) txt += `+ DISEÑO/CORTES ESPECIALES: desde $${totalEstimado.toLocaleString()} (valor final a definir)\n`;
   return txt;
 }
 
@@ -374,6 +380,40 @@ function enviarPorWhatsapp(){
   window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
 }
 
+function svgRectDiagram(labelAncho, labelAlto){
+  return `
+  <svg viewBox="0 0 200 120" style="max-width:190px;display:block;margin:2px auto 14px;">
+    <rect x="28" y="12" width="130" height="76" fill="none" stroke="#B0893A" stroke-width="3"/>
+    <line x1="28" y1="100" x2="158" y2="100" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="28,100 37,95 37,105" fill="#2B2419"/>
+    <polygon points="158,100 149,95 149,105" fill="#2B2419"/>
+    <text x="93" y="114" text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419">${labelAncho}</text>
+    <line x1="174" y1="12" x2="174" y2="88" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="174,12 169,21 179,21" fill="#2B2419"/>
+    <polygon points="174,88 169,79 179,79" fill="#2B2419"/>
+    <text text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419" transform="translate(196,50) rotate(90)">${labelAlto}</text>
+  </svg>`;
+}
+
+function svgPosicionDiagram(){
+  return `
+  <svg viewBox="0 0 200 140" style="max-width:190px;display:block;margin:2px auto 14px;">
+    <rect x="15" y="10" width="170" height="110" fill="none" stroke="#B0893A" stroke-width="2"/>
+    <rect x="68" y="55" width="58" height="45" fill="#EDE6D6" stroke="#2B2419" stroke-width="2"/>
+    <text x="97" y="82" text-anchor="middle" font-size="8" font-family="Archivo, sans-serif" fill="#7A6F5C">mueble</text>
+    <line x1="15" y1="128" x2="185" y2="128" stroke="#7A6F5C" stroke-width="1"/>
+    <text x="100" y="137" text-anchor="middle" font-size="8" font-family="Archivo, sans-serif" fill="#7A6F5C">PISO</text>
+    <line x1="15" y1="77" x2="68" y2="77" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="15,77 24,72 24,82" fill="#2B2419"/>
+    <polygon points="68,77 59,72 59,82" fill="#2B2419"/>
+    <text x="41" y="70" text-anchor="middle" font-size="7.5" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419">DESDE LA IZQUIERDA</text>
+    <line x1="145" y1="120" x2="145" y2="100" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="145,120 140,111 150,111" fill="#2B2419"/>
+    <polygon points="145,100 140,109 150,109" fill="#2B2419"/>
+    <text x="145" y="98" text-anchor="middle" font-size="7.5" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419">DESDE EL PISO</text>
+  </svg>`;
+}
+
 /* ---------- Materiales ---------- */
 function toggleAddForm(){
   const f = document.getElementById('addForm');
@@ -384,8 +424,31 @@ function toggleAddForm(){
 function renderAddFormFields(){
   const tipo = document.getElementById('matTipo').value;
   const el = document.getElementById('addFormFields');
+  const fotoBlock = `
+    <label>Foto de la lámina/rollo (opcional, para reconocerla después)</label>
+    <label for="fFoto" class="photo-drop" id="fFotoDrop">Toca para subir una foto</label>
+    <input type="file" id="fFoto" accept="image/*" style="display:none" onchange="handleMatFoto(event)">
+  `;
+  const precioLabel = tipo === 'esquinero' ? '¿Cuánto cobras por instalar cada PIEZA? (opcional, $)' :
+                       tipo === 'rollo' ? '¿Cuánto cobras por cada ROLLO instalado? ($)' :
+                       tipo === 'diseno' ? 'Tarifa MÍNIMA que cobras por este trabajo ($)' :
+                       '¿Cuánto cobras por instalar cada LÁMINA? ($)';
+  const precioHint = tipo === 'panel'
+    ? '<div class="hint">Sugerido automático: $24.000 para láminas de hasta 30 cm de ancho, $90.000 para láminas más anchas (mármol, piedra flexible). Puedes cambiarlo si cobras distinto.</div>'
+    : tipo === 'rollo'
+    ? '<div class="hint">Sugerido: $80.000 por rollo (rollo estándar de ~5 m²). Ajústalo si tu rollo rinde distinto.</div>'
+    : tipo === 'diseno'
+    ? '<div class="hint">Este valor es el mínimo de arranque — el precio final de un diseño o corte especial se acuerda directamente con el cliente según la complejidad.</div>'
+    : '';
+  const precioBlock = `
+    <label>${precioLabel}</label>
+    <input type="number" id="fPrecio" placeholder="Ej: 25000">
+    ${precioHint}
+  `;
+
   if(tipo === 'panel'){
     el.innerHTML = `
+      ${svgRectDiagram('ANCHO DE LA LÁMINA','ALTO DE LA LÁMINA')}
       <div class="row2">
         <div><label>Mide UNA sola lámina de lado a lado (ancho en cm)</label><input type="number" id="fAncho" placeholder="60"></div>
         <div><label>Mide esa misma lámina de arriba a abajo (alto en cm)</label><input type="number" id="fAlto" placeholder="240"></div>
@@ -394,33 +457,84 @@ function renderAddFormFields(){
       <input type="number" id="fSolape" placeholder="Ej: 0.5" step="0.1">
       <label>% de material extra que quieres comprar de más (desperdicio)</label>
       <input type="number" id="fDesp" placeholder="10">
+      ${precioBlock}
+      ${fotoBlock}
     `;
+    document.getElementById('fAncho').addEventListener('input', actualizarPrecioSugeridoPanel);
+    document.getElementById('fPrecio').addEventListener('input', () => { document.getElementById('fPrecio').dataset.editadoManual = 'true'; });
+    actualizarPrecioSugeridoPanel();
   } else if(tipo === 'rollo'){
     el.innerHTML = `
+      ${svgRectDiagram('ANCHO DEL ROLLO','LARGO DEL ROLLO')}
       <div class="row2">
         <div><label>Mide el ancho del rollo, de borde a borde (cm)</label><input type="number" id="fAncho" placeholder="53"></div>
         <div><label>Mide o revisa en la etiqueta el largo total del rollo (cm)</label><input type="number" id="fAlto" placeholder="1000"></div>
       </div>
       <label>% de material extra que quieres comprar de más (desperdicio)</label>
       <input type="number" id="fDesp" placeholder="15">
+      ${precioBlock}
+      ${fotoBlock}
     `;
+    document.getElementById('fPrecio').value = 80000;
+  } else if(tipo === 'diseno'){
+    el.innerHTML = `
+      <div class="hint">Usa esto para trabajos que no son instalación básica: diseños personalizados, muchos cortes, formas irregulares. No se calcula por medida, se cobra una tarifa mínima de arranque.</div>
+      ${precioBlock}
+    `;
+    document.getElementById('fPrecio').value = 100000;
   } else {
     el.innerHTML = `
       <label>Mide UNA sola pieza/perfil, de punta a punta (cm)</label>
       <input type="number" id="fAncho" placeholder="270">
       <label>% de material extra que quieres comprar de más (desperdicio)</label>
       <input type="number" id="fDesp" placeholder="5">
+      ${precioBlock}
+      ${fotoBlock}
     `;
   }
+  matFotoDataUrl = null;
+}
+
+function actualizarPrecioSugeridoPanel(){
+  const precioInput = document.getElementById('fPrecio');
+  if(!precioInput || precioInput.dataset.editadoManual === 'true') return;
+  const ancho = parseFloat(document.getElementById('fAncho').value) || 0;
+  precioInput.value = ancho > 30 ? 90000 : 24000;
+}
+
+let matFotoDataUrl = null;
+function handleMatFoto(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const canvas = document.createElement('canvas');
+      const size = 200;
+      const scale = Math.max(size/img.width, size/img.height);
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const w = img.width*scale, h = img.height*scale;
+      ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
+      matFotoDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      document.getElementById('fFotoDrop').textContent = 'Foto lista — toca para cambiarla';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function addMaterial(){
   const nombre = document.getElementById('matNombre').value.trim();
   const tipo = document.getElementById('matTipo').value;
-  const desperdicio = parseFloat(document.getElementById('fDesp').value) || 0;
+  const despEl = document.getElementById('fDesp');
+  const desperdicio = despEl ? (parseFloat(despEl.value) || 0) : 0;
   if(!nombre){ alert('Ponle un nombre al material'); return; }
 
   let mat = {id: nextId++, nombre, tipo, desperdicio};
+  mat.precio = parseFloat(document.getElementById('fPrecio').value) || 0;
+  mat.foto = matFotoDataUrl;
   if(tipo === 'panel'){
     mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
     mat.alto = parseFloat(document.getElementById('fAlto').value) || 0;
@@ -428,9 +542,10 @@ function addMaterial(){
   } else if(tipo === 'rollo'){
     mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
     mat.largoRollo = parseFloat(document.getElementById('fAlto').value) || 0;
-  } else {
+  } else if(tipo === 'esquinero'){
     mat.largoPieza = parseFloat(document.getElementById('fAncho').value) || 0;
   }
+  // tipo 'diseno' no necesita medidas adicionales, solo nombre y tarifa mínima
   materials.push(mat);
   document.getElementById('matNombre').value = '';
   document.getElementById('addForm').classList.remove('open');
@@ -453,8 +568,14 @@ function renderMaterialList(){
     if(m.tipo === 'panel') detail = `${m.ancho}×${m.alto} cm · panel${m.solape ? ' · traslape '+m.solape+' cm' : ''} · ${m.desperdicio}% desp.`;
     if(m.tipo === 'rollo') detail = `${m.ancho} cm × ${(m.largoRollo/100).toFixed(1)} m · rollo · ${m.desperdicio}% desp.`;
     if(m.tipo === 'esquinero') detail = `${m.largoPieza} cm/pieza · lineal · ${m.desperdicio}% desp.`;
+    if(m.tipo === 'diseno') detail = `Diseño / cortes especiales`;
+    if(m.precio) detail += m.tipo === 'diseno' ? ` · desde $${m.precio.toLocaleString()}` : ` · $${m.precio.toLocaleString()} instalación`;
+    const foto = m.foto
+      ? `<img src="${m.foto}" style="width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
+      : `<div style="width:44px;height:44px;border-radius:6px;background:var(--bg);border:1px solid var(--border);flex-shrink:0;"></div>`;
     return `<div class="material-card">
-      <div class="info"><b>${m.nombre}</b><span>${detail}</span></div>
+      ${foto}
+      <div class="info" style="flex:1;"><b>${m.nombre}</b><span>${detail}</span></div>
       <button class="btn-icon" onclick="deleteMaterial(${m.id})">Borrar</button>
     </div>`;
   }).join('') || '<div class="hint">No tienes materiales guardados todavía.</div>';
@@ -483,8 +604,15 @@ function renderWallFields(){
       <label>Suma el largo de TODAS las esquinas donde va este perfil (metros)</label>
       <input type="number" id="wLongitud" placeholder="Ej: 6.5">
     `;
+  } else if(mat.tipo === 'diseno'){
+    el.innerHTML = `
+      <div class="hint">Este trabajo no se calcula por medida — se cobra una tarifa mínima que después se ajusta con el cliente según la complejidad real.</div>
+      <label>¿Cuántos trabajos de este tipo vas a cotizar aquí?</label>
+      <input type="number" id="wCantidadDiseno" placeholder="Ej: 1" value="1">
+    `;
   } else {
     el.innerHTML = `
+      ${svgRectDiagram('ANCHO DE LA PARED','ALTO DE LA PARED')}
       <div class="row2">
         <div><label>Mide la pared de un extremo al otro (ancho en cm)</label><input type="number" id="wAncho" placeholder="Ej: 320"></div>
         <div><label>Mide desde el piso hasta donde llega el material (alto en cm)</label><input type="number" id="wAlto" placeholder="Ej: 240"></div>
@@ -502,6 +630,7 @@ function addAberturaRow(){
   const row = document.createElement('div');
   row.className = 'abertura-row';
   row.innerHTML = `
+    ${svgPosicionDiagram()}
     <div class="row2">
       <div><label>Mide esa zona/mueble de lado a lado (ancho en cm)</label><input type="number" placeholder="Ej: 130" class="ab-ancho"></div>
       <div><label>Mide esa zona/mueble de arriba a abajo (alto en cm)</label><input type="number" placeholder="Ej: 60" class="ab-alto"></div>
@@ -609,6 +738,23 @@ function calcular(){
   document.getElementById('btnGuardarPared').style.display = 'none';
   ultimoCalculo = null;
 
+  if(mat.tipo === 'diseno'){
+    const cantidad = parseInt(document.getElementById('wCantidadDiseno').value) || 1;
+    const totalMin = cantidad * mat.precio;
+    box.innerHTML = `
+      <div class="figure-label">Cotización estimada — "${mat.nombre}"</div>
+      <div class="figure">desde $${totalMin.toLocaleString()}</div>
+      <div class="sub">Tarifa mínima de arranque (${cantidad} × $${mat.precio.toLocaleString()}). El valor final se acuerda directamente con el cliente según la complejidad del diseño o los cortes.</div>
+    `;
+    ultimoCalculo = {
+      materialNombre: mat.nombre, medidor, cantidad, unidad: 'diseño(s)',
+      cantidadTexto: `${cantidad} diseño(s)`, dimensionTexto: `Trabajo con diseño / cortes especiales`,
+      precioUnitario: mat.precio, esEstimado: true
+    };
+    document.getElementById('btnGuardarPared').style.display = 'block';
+    return;
+  }
+
   if(mat.tipo === 'esquinero'){
     const longitud = parseFloat(document.getElementById('wLongitud').value) || 0;
     if(longitud <= 0){ alert('Ingresa la longitud total de esquinas'); return; }
@@ -623,7 +769,8 @@ function calcular(){
     `;
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: piezas, unidad: 'piezas',
-      cantidadTexto: `${piezas} piezas`, dimensionTexto: `${longitud} m de esquinas`
+      cantidadTexto: `${piezas} piezas`, dimensionTexto: `${longitud} m de esquinas`,
+      precioUnitario: mat.precio || 0
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
     return;
@@ -690,14 +837,9 @@ function calcular(){
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: paneles, unidad: 'láminas',
       cantidadTexto: `${paneles} láminas`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`,
-      cols, rows
+      cols, rows, precioUnitario: mat.precio || 0
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
-
-    if(currentPhoto){
-      document.getElementById('previewSection').style.display = 'block';
-      initPreviewCanvas();
-    }
 
   } else if(mat.tipo === 'rollo'){
     const tiras = Math.ceil(anchoPared / mat.ancho);
@@ -714,7 +856,8 @@ function calcular(){
 
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: rollos, unidad: 'rollos',
-      cantidadTexto: `${rollos} rollos`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`
+      cantidadTexto: `${rollos} rollos`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`,
+      precioUnitario: mat.precio || 0
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
   }
@@ -739,185 +882,6 @@ function guardarParedEnProyecto(){
   document.getElementById('resultEmpty').style.display = 'block';
   ultimoCalculo = null;
   alert('Pared guardada en el proyecto de ' + proyecto.cliente);
-}
-
-/* ---------- Vista previa con textura (perspectiva aproximada) ---------- */
-let previewPoints = [];
-let previewTextureImg = null;
-let previewCanvasScale = 1;
-
-function handleTextura(evt){
-  const file = evt.target.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const img = new Image();
-    img.onload = function(){
-      previewTextureImg = img;
-      document.getElementById('texturaDrop').textContent = 'Textura cargada — toca para cambiarla';
-      initPreviewCanvas();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function initPreviewCanvas(){
-  if(!currentPhoto) return;
-  const canvas = document.getElementById('previewCanvas');
-  const img = currentPhoto.img;
-  const maxW = document.querySelector('.app').clientWidth - 32;
-  previewCanvasScale = maxW / img.width;
-  canvas.width = maxW;
-  canvas.height = img.height * previewCanvasScale;
-  canvas.style.display = 'block';
-  previewPoints = [];
-  document.getElementById('resultCanvas').style.display = 'none';
-  document.getElementById('btnGenerarPreview').disabled = true;
-  actualizarInstruccion();
-  redrawPreviewPoints();
-
-  canvas.onclick = previewCanvasClick;
-}
-
-const ORDEN_PUNTOS = [
-  'Toca la esquina SUPERIOR IZQUIERDA de la zona donde va la lámina',
-  'Ahora toca la esquina SUPERIOR DERECHA',
-  'Ahora toca la esquina INFERIOR DERECHA',
-  'Por último, toca la esquina INFERIOR IZQUIERDA'
-];
-
-function actualizarInstruccion(){
-  const el = document.getElementById('previewInstruccion');
-  if(!previewTextureImg){ el.textContent = 'Sube primero la textura de arriba.'; return; }
-  if(previewPoints.length < 4){ el.textContent = ORDEN_PUNTOS[previewPoints.length]; }
-  else { el.textContent = 'Las 4 esquinas están marcadas. Toca "Generar vista previa".'; }
-}
-
-function previewCanvasClick(evt){
-  if(!previewTextureImg){ alert('Sube primero la foto de la textura/lámina'); return; }
-  if(previewPoints.length >= 4) return;
-  const canvas = document.getElementById('previewCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const x = (evt.clientX - rect.left) * (canvas.width / rect.width);
-  const y = (evt.clientY - rect.top) * (canvas.height / rect.height);
-  previewPoints.push({x, y});
-  redrawPreviewPoints();
-  actualizarInstruccion();
-  if(previewPoints.length === 4) document.getElementById('btnGenerarPreview').disabled = false;
-}
-
-function redrawPreviewPoints(){
-  if(!currentPhoto) return;
-  const canvas = document.getElementById('previewCanvas');
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(currentPhoto.img, 0, 0, canvas.width, canvas.height);
-
-  if(previewPoints.length){
-    ctx.strokeStyle = '#B0893A';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    previewPoints.forEach((p,i) => { if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
-    if(previewPoints.length === 4) ctx.closePath();
-    ctx.stroke();
-
-    previewPoints.forEach((p,i) => {
-      ctx.fillStyle = '#B0893A';
-      ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 11px Archivo, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(i+1), p.x, p.y);
-    });
-  }
-}
-
-function reiniciarPuntos(){
-  previewPoints = [];
-  document.getElementById('btnGenerarPreview').disabled = true;
-  document.getElementById('resultCanvas').style.display = 'none';
-  actualizarInstruccion();
-  redrawPreviewPoints();
-}
-
-function bilerp(quad, u, v){
-  const [p0,p1,p2,p3] = quad; // TL, TR, BR, BL
-  const top = {x:p0.x+(p1.x-p0.x)*u, y:p0.y+(p1.y-p0.y)*u};
-  const bottom = {x:p3.x+(p2.x-p3.x)*u, y:p3.y+(p2.y-p3.y)*u};
-  return {x: top.x+(bottom.x-top.x)*v, y: top.y+(bottom.y-top.y)*v};
-}
-
-function drawTexturedCell(ctx, img, sx, sy, sw, sh, p00, p10, p01){
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(p00.x, p00.y);
-  ctx.lineTo(p10.x, p10.y);
-  const p11 = {x: p10.x + (p01.x - p00.x), y: p10.y + (p01.y - p00.y)};
-  ctx.lineTo(p11.x, p11.y);
-  ctx.lineTo(p01.x, p01.y);
-  ctx.closePath();
-  ctx.clip();
-
-  const m11 = (p10.x - p00.x) / sw;
-  const m12 = (p10.y - p00.y) / sw;
-  const m21 = (p01.x - p00.x) / sh;
-  const m22 = (p01.y - p00.y) / sh;
-  const dx = p00.x - (sx*m11 + sy*m21);
-  const dy = p00.y - (sx*m12 + sy*m22);
-  ctx.setTransform(m11, m12, m21, m22, dx, dy);
-  ctx.drawImage(img, 0, 0);
-  ctx.restore();
-}
-
-function warpImageToQuad(ctx, srcCanvas, quad, subdivisions){
-  const sw = srcCanvas.width, sh = srcCanvas.height;
-  const n = subdivisions;
-  for(let j=0; j<n; j++){
-    for(let i=0; i<n; i++){
-      const u0=i/n, u1=(i+1)/n, v0=j/n, v1=(j+1)/n;
-      const p00 = bilerp(quad,u0,v0);
-      const p10 = bilerp(quad,u1,v0);
-      const p01 = bilerp(quad,u0,v1);
-      const sx0 = u0*sw, sy0 = v0*sh, sxw = (u1-u0)*sw, syh = (v1-v0)*sh;
-      drawTexturedCell(ctx, srcCanvas, sx0, sy0, sxw, syh, p00, p10, p01);
-    }
-  }
-}
-
-function buildTiledTexture(cols, rows){
-  const tile = 140;
-  const tileCanvas = document.createElement('canvas');
-  tileCanvas.width = tile*cols;
-  tileCanvas.height = tile*rows;
-  const ctx = tileCanvas.getContext('2d');
-  for(let r=0; r<rows; r++){
-    for(let c=0; c<cols; c++){
-      ctx.drawImage(previewTextureImg, c*tile, r*tile, tile, tile);
-    }
-  }
-  return tileCanvas;
-}
-
-function generarVistaPrevia(){
-  if(previewPoints.length !== 4 || !previewTextureImg || !currentPhoto) return;
-  const cols = (ultimoCalculo && ultimoCalculo.cols) ? ultimoCalculo.cols : 3;
-  const rows = (ultimoCalculo && ultimoCalculo.rows) ? ultimoCalculo.rows : 1;
-
-  const previewCanvas = document.getElementById('previewCanvas');
-  const resultCanvas = document.getElementById('resultCanvas');
-  resultCanvas.width = previewCanvas.width;
-  resultCanvas.height = previewCanvas.height;
-  resultCanvas.style.display = 'block';
-  const ctx = resultCanvas.getContext('2d');
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.drawImage(currentPhoto.img, 0, 0, resultCanvas.width, resultCanvas.height);
-
-  const tiled = buildTiledTexture(cols, rows);
-  warpImageToQuad(ctx, tiled, previewPoints, 18);
-
-  resultCanvas.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 /* ---------- Inicio ---------- */
