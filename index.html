@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Maison Élite — Medidor de Instalación</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Maison Élite">
+<meta name="theme-color" content="#B0893A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F7F3EB;
+    --surface:#FFFFFF;
+    --border:#E3D9C4;
+    --ink:#2B2419;
+    --ink-soft:#7A6F5C;
+    --accent:#B0893A;
+    --accent-ink:#FFFFFF;
+    --success:#5C7A52;
+    --success-bg:#EEF2E9;
+    --warn:#A6752F;
+    --warn-bg:#FBF1E1;
+    --danger:#A6432F;
+    --danger-bg:#F8ECE9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Archivo',sans-serif;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .app{ max-width:560px; margin:0 auto; padding:20px 16px 100px; }
+  header.top{ padding:4px 0 18px; text-align:center; }
+  header.top .brand-mark{ width:52px; height:52px; margin-bottom:8px; }
+  header.top p:last-child{text-align:left;}
+  header.top h1{
+    font-family:'Cinzel',serif; font-size:1.5rem; font-weight:700;
+    letter-spacing:0.03em; margin:0 0 4px; color:var(--ink);
+  }
+  header.top .eyebrow{
+    font-family:'Archivo',sans-serif; font-size:0.72rem; font-weight:700;
+    letter-spacing:0.14em; color:var(--accent); margin:0 0 6px;
+  }
+  header.top p{ margin:0; color:var(--ink-soft); font-size:0.92rem; line-height:1.4; }
+  section{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:16px; margin-bottom:16px;
+  }
+  section h2{
+    font-family:'Cinzel',serif; font-size:0.95rem; font-weight:600; letter-spacing:0.02em;
+    margin:0 0 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  label{ display:block; font-size:0.82rem; color:var(--ink-soft); font-weight:600; margin-bottom:4px; }
+  input[type=text], input[type=number], select{
+    width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+    font-size:0.95rem; font-family:'IBM Plex Mono',monospace; background:#FBFBFA;
+    color:var(--ink); margin-bottom:12px;
+  }
+  input[type=text]{font-family:'Archivo',sans-serif;}
+  select{font-family:'Archivo',sans-serif;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  button{
+    font-family:'Archivo',sans-serif; font-weight:700; border:none; border-radius:8px;
+    padding:11px 16px; font-size:0.9rem; cursor:pointer;
+  }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); width:100%; }
+  .btn-secondary{ background:var(--ink); color:#fff; width:100%; margin-top:8px; }
+  .btn-ghost{ background:transparent; color:var(--accent); border:1px solid var(--accent); padding:8px 12px; font-size:0.82rem; flex-shrink:0; }
+  .btn-icon{ background:transparent; color:var(--danger); border:1px solid var(--border); padding:8px 10px; font-size:0.8rem; }
+  .material-card, .pared-card{
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .material-card .info b, .pared-card .info b{display:block; font-size:0.9rem;}
+  .material-card .info span, .pared-card .info span{font-size:0.78rem; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; line-height:1.5;}
+  .abertura-row{ border:1px solid var(--border); border-radius:8px; padding:10px; margin-bottom:10px; }
+  .abertura-row input{margin-bottom:8px;}
+  .abertura-row .btn-icon{width:100%; margin-top:2px;}
+  .hint{font-size:0.78rem; color:var(--ink-soft); margin:-6px 0 12px; line-height:1.4;}
+  .warn-box{
+    background:var(--warn-bg); border:1px solid var(--warn); color:var(--warn);
+    border-radius:8px; padding:10px 12px; font-size:0.8rem; margin:-4px 0 12px; line-height:1.4; display:none;
+  }
+  .photo-drop{
+    border:1.5px dashed var(--border); border-radius:8px; padding:18px; text-align:center;
+    color:var(--ink-soft); font-size:0.85rem; margin-bottom:12px; cursor:pointer;
+  }
+  #wallCanvas{ width:100%; border-radius:8px; display:none; margin-bottom:12px; background:#000; }
+  .result-box{
+    background:var(--success-bg); border:1px solid var(--success); border-radius:8px; padding:14px; display:none;
+  }
+  .result-box .figure{ font-family:'IBM Plex Mono',monospace; font-size:1.6rem; font-weight:600; color:var(--success); }
+  .result-box .figure-label{font-size:0.8rem; color:var(--ink-soft); margin-bottom:2px;}
+  .result-box .sub{font-size:0.82rem; color:var(--ink-soft); margin-top:8px; line-height:1.5;}
+  .divider{height:1px; background:var(--border); margin:12px 0;}
+  .toggle-form{display:none;}
+  .toggle-form.open{display:block;}
+  .proyecto-header{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:4px;
+  }
+  .proyecto-header .info b{font-size:1rem;}
+  .proyecto-header .info span{font-size:0.8rem; color:var(--ink-soft);}
+  .total-row{
+    display:flex; justify-content:space-between; font-size:0.85rem; padding:6px 0;
+    border-bottom:1px solid var(--border); font-family:'IBM Plex Mono',monospace;
+  }
+  .total-row:last-child{border-bottom:none;}
+  .empty-state{font-size:0.85rem; color:var(--ink-soft); text-align:center; padding:12px 0;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <img src="icon-192.png" alt="Maison Élite" class="brand-mark">
+    <p class="eyebrow">MAISON ÉLITE · WALLS INSTALLATION</p>
+    <h1>Medidor de Instalación</h1>
+    <p>Toma la foto, ingresa las medidas reales con el metro y calcula cuánto material necesitas. Todo se guarda en este mismo celular — nada se sube a ningún servidor.</p>
+  </header>
+
+  <section id="proyectoSection">
+    <h2>Proyecto activo
+      <button class="btn-ghost" onclick="toggleNuevoProyecto()">+ Nuevo</button>
+    </h2>
+    <select id="proyectoSelect" onchange="cambiarProyecto()"></select>
+
+    <div class="toggle-form" id="nuevoProyectoForm">
+      <div class="divider"></div>
+      <label>Nombre del cliente</label>
+      <input type="text" id="pCliente" placeholder="Ej: Familia Rodríguez">
+      <label>Dirección o referencia (opcional)</label>
+      <input type="text" id="pDireccion" placeholder="Ej: Torre 3, Apto 502">
+      <button class="btn-primary" onclick="crearProyecto()">Crear proyecto</button>
+    </div>
+
+    <div id="proyectoDetalle"></div>
+  </section>
+
+  <section id="catalogo">
+    <h2>Catálogo de materiales
+      <button class="btn-ghost" onclick="toggleAddForm()">+ Agregar</button>
+    </h2>
+    <div id="materialList"></div>
+
+    <div class="toggle-form" id="addForm">
+      <div class="divider"></div>
+      <label>Nombre del material</label>
+      <input type="text" id="matNombre" placeholder="Ej: Wall panel mármol flexible">
+
+      <label>Tipo</label>
+      <select id="matTipo" onchange="renderAddFormFields()">
+        <option value="panel">Lámina / panel (unidad rígida)</option>
+        <option value="rollo">Rollo (papel de colgadura)</option>
+        <option value="esquinero">Perfil / esquinero (lineal)</option>
+      </select>
+
+      <div id="addFormFields"></div>
+
+      <button class="btn-primary" onclick="addMaterial()">Guardar material</button>
+    </div>
+  </section>
+
+  <section id="pared">
+    <h2>Nueva pared</h2>
+
+    <label>¿Quién está tomando esta medida?</label>
+    <input type="text" id="wMedidor" placeholder="Nombre de quien mide" list="medidoresList">
+    <datalist id="medidoresList"></datalist>
+
+    <label>Foto de la pared (opcional, para visualizar)</label>
+    <label for="photoInput" class="photo-drop" id="photoDrop">
+      Toca para tomar o elegir una foto
+    </label>
+    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
+    <canvas id="wallCanvas"></canvas>
+
+    <label>Material a usar</label>
+    <select id="materialSelect" onchange="renderWallFields()"></select>
+
+    <div id="wallFields"></div>
+    <div class="warn-box" id="warnBox"></div>
+
+    <button class="btn-primary" onclick="calcular()">Calcular material</button>
+  </section>
+
+  <section id="resultadoSection">
+    <h2>Resultado</h2>
+    <div class="result-box" id="resultBox"></div>
+    <button class="btn-secondary" id="btnGuardarPared" style="display:none" onclick="guardarParedEnProyecto()">Guardar esta pared en el proyecto</button>
+    <div class="hint" id="resultEmpty">Aún no has calculado ninguna pared.</div>
+  </section>
+
+  <section id="previewSection" style="display:none">
+    <h2>Vista previa con tu lámina</h2>
+    <div class="hint">Sube una foto de la lámina o textura que vas a instalar, y luego toca sobre tu foto de la pared las 4 esquinas de la zona donde va — así ves cómo quedaría antes de comprar.</div>
+
+    <label>Foto o textura de la lámina/rollo</label>
+    <label for="texturaInput" class="photo-drop" id="texturaDrop">Toca para subir la textura</label>
+    <input type="file" id="texturaInput" accept="image/*" style="display:none" onchange="handleTextura(event)">
+
+    <div class="hint" id="previewInstruccion">Sube primero la textura de arriba.</div>
+    <canvas id="previewCanvas"></canvas>
+
+    <button class="btn-ghost" style="width:100%; margin-top:4px;" onclick="reiniciarPuntos()">Reiniciar puntos</button>
+    <button class="btn-primary" style="margin-top:8px;" id="btnGenerarPreview" onclick="generarVistaPrevia()" disabled>Generar vista previa</button>
+
+    <canvas id="resultCanvas" style="display:none; margin-top:14px;"></canvas>
+  </section>
+
+</div>
+
+<script>
+/* ---------- Persistencia ---------- */
+function cargar(key, porDefecto){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : porDefecto; }
+  catch(e){ return porDefecto; }
+}
+function guardar(key, valor){
+  try{ localStorage.setItem(key, JSON.stringify(valor)); }catch(e){}
+}
+
+let materials = cargar('me_materiales', []);
+let proyectos = cargar('me_proyectos', []);
+let currentProyectoId = cargar('me_proyecto_actual', null);
+let medidores = cargar('me_medidores', []);
+let nextId = cargar('me_next_id', 1);
+let currentPhoto = null;
+let ultimoCalculo = null;
+
+function guardarTodo(){
+  guardar('me_materiales', materials);
+  guardar('me_proyectos', proyectos);
+  guardar('me_proyecto_actual', currentProyectoId);
+  guardar('me_medidores', medidores);
+  guardar('me_next_id', nextId);
+}
+
+/* ---------- Proyectos ---------- */
+function toggleNuevoProyecto(){
+  document.getElementById('nuevoProyectoForm').classList.toggle('open');
+}
+
+function crearProyecto(){
+  const cliente = document.getElementById('pCliente').value.trim();
+  if(!cliente){ alert('Ponle el nombre del cliente al proyecto'); return; }
+  const direccion = document.getElementById('pDireccion').value.trim();
+  const proyecto = { id: nextId++, cliente, direccion, paredes: [] };
+  proyectos.push(proyecto);
+  currentProyectoId = proyecto.id;
+  document.getElementById('pCliente').value = '';
+  document.getElementById('pDireccion').value = '';
+  document.getElementById('nuevoProyectoForm').classList.remove('open');
+  guardarTodo();
+  renderProyectoSelect();
+  renderProyectoDetalle();
+}
+
+function cambiarProyecto(){
+  currentProyectoId = parseInt(document.getElementById('proyectoSelect').value) || null;
+  guardarTodo();
+  renderProyectoDetalle();
+}
+
+function getProyectoActual(){
+  return proyectos.find(p => p.id === currentProyectoId) || null;
+}
+
+function renderProyectoSelect(){
+  const sel = document.getElementById('proyectoSelect');
+  if(!proyectos.length){
+    sel.innerHTML = '<option value="">— Crea tu primer proyecto —</option>';
+    return;
+  }
+  sel.innerHTML = proyectos.map(p => `<option value="${p.id}">${p.cliente}${p.direccion ? ' · '+p.direccion : ''}</option>`).join('');
+  sel.value = currentProyectoId || proyectos[0].id;
+  currentProyectoId = parseInt(sel.value);
+}
+
+function eliminarPared(paredId){
+  const proyecto = getProyectoActual();
+  if(!proyecto) return;
+  proyecto.paredes = proyecto.paredes.filter(p => p.id !== paredId);
+  guardarTodo();
+  renderProyectoDetalle();
+}
+
+function renderProyectoDetalle(){
+  const el = document.getElementById('proyectoDetalle');
+  const proyecto = getProyectoActual();
+  if(!proyecto){
+    el.innerHTML = '<div class="empty-state">Crea un proyecto para empezar a guardar paredes de un mismo cliente.</div>';
+    return;
+  }
+
+  const filasParedes = proyecto.paredes.map(p => `
+    <div class="pared-card">
+      <div class="info">
+        <b>${p.materialNombre} — ${p.cantidadTexto}</b>
+        <span>${p.dimensionTexto} · medido por ${p.medidor} · ${p.fecha}</span>
+      </div>
+      <button class="btn-icon" onclick="eliminarPared(${p.id})">✕</button>
+    </div>
+  `).join('') || '<div class="empty-state">Todavía no has guardado ninguna pared en este proyecto.</div>';
+
+  // Total consolidado por material
+  const totales = {};
+  proyecto.paredes.forEach(p => {
+    const key = p.materialNombre + '|' + p.unidad;
+    totales[key] = (totales[key] || 0) + p.cantidad;
+  });
+  const filasTotales = Object.entries(totales).map(([key, cant]) => {
+    const [nombre, unidad] = key.split('|');
+    return `<div class="total-row"><span>${nombre}</span><span>${cant} ${unidad}</span></div>`;
+  }).join('') || '<div class="empty-state">Sin materiales todavía.</div>';
+
+  el.innerHTML = `
+    <div class="divider"></div>
+    <div class="proyecto-header">
+      <div class="info"><b>${proyecto.cliente}</b><span>${proyecto.direccion || 'Sin dirección registrada'}</span></div>
+    </div>
+    <div class="hint">Paredes guardadas en este proyecto</div>
+    ${filasParedes}
+    <div class="divider"></div>
+    <div class="hint">Total a comprar (todas las paredes de este proyecto)</div>
+    ${filasTotales}
+    <button class="btn-ghost" style="width:100%; margin-top:12px;" onclick="copiarResumen()">Copiar resumen</button>
+    <button class="btn-secondary" onclick="enviarPorWhatsapp()">Enviar por WhatsApp</button>
+  `;
+}
+
+function construirResumenTexto(){
+  const proyecto = getProyectoActual();
+  if(!proyecto) return '';
+  let txt = `Medidor de Instalación — Maison Élite\nCliente: ${proyecto.cliente}\n`;
+  if(proyecto.direccion) txt += `Dirección: ${proyecto.direccion}\n`;
+  txt += `\nPAREDES:\n`;
+  proyecto.paredes.forEach((p, i) => {
+    txt += `${i+1}. ${p.dimensionTexto} — ${p.materialNombre}: ${p.cantidadTexto} (midió ${p.medidor}, ${p.fecha})\n`;
+  });
+  const totales = {};
+  proyecto.paredes.forEach(p => {
+    const key = p.materialNombre + '|' + p.unidad;
+    totales[key] = (totales[key] || 0) + p.cantidad;
+  });
+  txt += `\nTOTAL A COMPRAR:\n`;
+  Object.entries(totales).forEach(([key, cant]) => {
+    const [nombre, unidad] = key.split('|');
+    txt += `- ${nombre}: ${cant} ${unidad}\n`;
+  });
+  return txt;
+}
+
+function copiarResumen(){
+  const txt = construirResumenTexto();
+  if(!txt){ alert('No hay nada que copiar todavía'); return; }
+  navigator.clipboard.writeText(txt).then(() => {
+    alert('Resumen copiado — ya lo puedes pegar donde quieras');
+  }).catch(() => {
+    alert('No se pudo copiar automáticamente. Selecciona y copia manualmente:\n\n' + txt);
+  });
+}
+
+function enviarPorWhatsapp(){
+  const txt = construirResumenTexto();
+  if(!txt){ alert('No hay nada que enviar todavía'); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+}
+
+/* ---------- Materiales ---------- */
+function toggleAddForm(){
+  const f = document.getElementById('addForm');
+  f.classList.toggle('open');
+  if(f.classList.contains('open')) renderAddFormFields();
+}
+
+function renderAddFormFields(){
+  const tipo = document.getElementById('matTipo').value;
+  const el = document.getElementById('addFormFields');
+  if(tipo === 'panel'){
+    el.innerHTML = `
+      <div class="row2">
+        <div><label>Mide UNA sola lámina de lado a lado (ancho en cm)</label><input type="number" id="fAncho" placeholder="60"></div>
+        <div><label>Mide esa misma lámina de arriba a abajo (alto en cm)</label><input type="number" id="fAlto" placeholder="240"></div>
+      </div>
+      <label>Une 2 láminas por su pestaña: ¿cuánto se achicó el ancho total? (cm)</label>
+      <input type="number" id="fSolape" placeholder="Ej: 0.5" step="0.1">
+      <label>% de material extra que quieres comprar de más (desperdicio)</label>
+      <input type="number" id="fDesp" placeholder="10">
+    `;
+  } else if(tipo === 'rollo'){
+    el.innerHTML = `
+      <div class="row2">
+        <div><label>Mide el ancho del rollo, de borde a borde (cm)</label><input type="number" id="fAncho" placeholder="53"></div>
+        <div><label>Mide o revisa en la etiqueta el largo total del rollo (cm)</label><input type="number" id="fAlto" placeholder="1000"></div>
+      </div>
+      <label>% de material extra que quieres comprar de más (desperdicio)</label>
+      <input type="number" id="fDesp" placeholder="15">
+    `;
+  } else {
+    el.innerHTML = `
+      <label>Mide UNA sola pieza/perfil, de punta a punta (cm)</label>
+      <input type="number" id="fAncho" placeholder="270">
+      <label>% de material extra que quieres comprar de más (desperdicio)</label>
+      <input type="number" id="fDesp" placeholder="5">
+    `;
+  }
+}
+
+function addMaterial(){
+  const nombre = document.getElementById('matNombre').value.trim();
+  const tipo = document.getElementById('matTipo').value;
+  const desperdicio = parseFloat(document.getElementById('fDesp').value) || 0;
+  if(!nombre){ alert('Ponle un nombre al material'); return; }
+
+  let mat = {id: nextId++, nombre, tipo, desperdicio};
+  if(tipo === 'panel'){
+    mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
+    mat.alto = parseFloat(document.getElementById('fAlto').value) || 0;
+    mat.solape = parseFloat(document.getElementById('fSolape').value) || 0;
+  } else if(tipo === 'rollo'){
+    mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
+    mat.largoRollo = parseFloat(document.getElementById('fAlto').value) || 0;
+  } else {
+    mat.largoPieza = parseFloat(document.getElementById('fAncho').value) || 0;
+  }
+  materials.push(mat);
+  document.getElementById('matNombre').value = '';
+  document.getElementById('addForm').classList.remove('open');
+  guardarTodo();
+  renderMaterialList();
+  renderMaterialSelect();
+}
+
+function deleteMaterial(id){
+  materials = materials.filter(m => m.id !== id);
+  guardarTodo();
+  renderMaterialList();
+  renderMaterialSelect();
+}
+
+function renderMaterialList(){
+  const el = document.getElementById('materialList');
+  el.innerHTML = materials.map(m => {
+    let detail = '';
+    if(m.tipo === 'panel') detail = `${m.ancho}×${m.alto} cm · panel${m.solape ? ' · traslape '+m.solape+' cm' : ''} · ${m.desperdicio}% desp.`;
+    if(m.tipo === 'rollo') detail = `${m.ancho} cm × ${(m.largoRollo/100).toFixed(1)} m · rollo · ${m.desperdicio}% desp.`;
+    if(m.tipo === 'esquinero') detail = `${m.largoPieza} cm/pieza · lineal · ${m.desperdicio}% desp.`;
+    return `<div class="material-card">
+      <div class="info"><b>${m.nombre}</b><span>${detail}</span></div>
+      <button class="btn-icon" onclick="deleteMaterial(${m.id})">Borrar</button>
+    </div>`;
+  }).join('') || '<div class="hint">No tienes materiales guardados todavía.</div>';
+}
+
+function renderMaterialSelect(){
+  const sel = document.getElementById('materialSelect');
+  sel.innerHTML = materials.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  renderWallFields();
+}
+
+/* ---------- Medidores (autocompletar nombres) ---------- */
+function renderMedidoresList(){
+  document.getElementById('medidoresList').innerHTML = medidores.map(n => `<option value="${n}">`).join('');
+}
+
+/* ---------- Pared ---------- */
+function renderWallFields(){
+  const id = parseInt(document.getElementById('materialSelect').value);
+  const mat = materials.find(m => m.id === id);
+  const el = document.getElementById('wallFields');
+  if(!mat){ el.innerHTML = ''; return; }
+
+  if(mat.tipo === 'esquinero'){
+    el.innerHTML = `
+      <label>Suma el largo de TODAS las esquinas donde va este perfil (metros)</label>
+      <input type="number" id="wLongitud" placeholder="Ej: 6.5">
+    `;
+  } else {
+    el.innerHTML = `
+      <div class="row2">
+        <div><label>Mide la pared de un extremo al otro (ancho en cm)</label><input type="number" id="wAncho" placeholder="Ej: 320"></div>
+        <div><label>Mide desde el piso hasta donde llega el material (alto en cm)</label><input type="number" id="wAlto" placeholder="Ej: 240"></div>
+      </div>
+      <label>Zonas que quedan tapadas para siempre (muebles fijos, puertas, ventanas) — opcional</label>
+      <div class="hint">No metas tomacorrientes ni interruptores aquí: esos solo llevan un corte, no te ahorran lámina.</div>
+      <div id="aberturas"></div>
+      <button class="btn-ghost" onclick="addAberturaRow()" type="button">+ Agregar zona tapada</button>
+    `;
+  }
+}
+
+function addAberturaRow(){
+  const el = document.getElementById('aberturas');
+  const row = document.createElement('div');
+  row.className = 'abertura-row';
+  row.innerHTML = `
+    <div class="row2">
+      <div><label>Mide esa zona/mueble de lado a lado (ancho en cm)</label><input type="number" placeholder="Ej: 130" class="ab-ancho"></div>
+      <div><label>Mide esa zona/mueble de arriba a abajo (alto en cm)</label><input type="number" placeholder="Ej: 60" class="ab-alto"></div>
+    </div>
+    <div class="row2">
+      <div><label>Párate frente a la pared: mide desde el borde IZQUIERDO de la pared hasta donde EMPIEZA el mueble (cm)</label><input type="number" placeholder="Ej: 0" class="ab-x"></div>
+      <div><label>Mide desde el PISO hasta donde EMPIEZA (la parte de abajo) el mueble (cm)</label><input type="number" placeholder="Ej: 180" class="ab-y"></div>
+    </div>
+    <button class="btn-icon" onclick="this.parentElement.remove()">Quitar esta zona</button>
+  `;
+  el.appendChild(row);
+}
+
+function mostrarWarn(msg){
+  const box = document.getElementById('warnBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function ocultarWarn(){
+  document.getElementById('warnBox').style.display = 'none';
+}
+
+function handlePhoto(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      currentPhoto = {img};
+      document.getElementById('photoDrop').textContent = 'Foto cargada — toca para cambiarla';
+      drawBaseCanvas();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function drawBaseCanvas(overlayFn){
+  if(!currentPhoto) return;
+  const canvas = document.getElementById('wallCanvas');
+  const img = currentPhoto.img;
+  const maxW = document.querySelector('.app').clientWidth - 32;
+  const scale = maxW / img.width;
+  canvas.width = img.width * scale;
+  canvas.height = img.height * scale;
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  if(overlayFn) overlayFn(ctx, canvas.width, canvas.height);
+}
+
+function drawGridOverlay(cols, rows, celdasTapadas){
+  drawBaseCanvas((ctx, w, h) => {
+    if(celdasTapadas && celdasTapadas.length){
+      ctx.fillStyle = 'rgba(90,95,100,0.55)';
+      celdasTapadas.forEach(({c,r}) => {
+        const rInvertida = rows - 1 - r;
+        ctx.fillRect((w/cols)*c, (h/rows)*rInvertida, w/cols, h/rows);
+      });
+    }
+    ctx.strokeStyle = 'rgba(176,137,58,0.9)';
+    ctx.lineWidth = 2;
+    for(let c=1; c<cols; c++){
+      const x = (w/cols)*c;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+    for(let r=1; r<rows; r++){
+      const y = (h/rows)*r;
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+  });
+}
+
+function panelsNeeded(longitud, anchoPanel, solape){
+  if(anchoPanel <= 0) return 0;
+  if(longitud <= anchoPanel) return 1;
+  const efectivo = Math.max(anchoPanel - solape, 0.1);
+  return 1 + Math.ceil((longitud - anchoPanel) / efectivo);
+}
+
+function panelEdges(longitud, anchoPanel, solape){
+  const n = panelsNeeded(longitud, anchoPanel, solape);
+  const efectivo = Math.max(anchoPanel - solape, 0.1);
+  const edges = [];
+  for(let i=0; i<n; i++){
+    const start = i*efectivo;
+    edges.push({start, end: start+anchoPanel});
+  }
+  return edges;
+}
+
+function calcular(){
+  ocultarWarn();
+  const medidor = document.getElementById('wMedidor').value.trim();
+  if(!medidor){ alert('Escribe el nombre de quien está midiendo antes de calcular'); return; }
+
+  const id = parseInt(document.getElementById('materialSelect').value);
+  const mat = materials.find(m => m.id === id);
+  if(!mat){ alert('Agrega o selecciona un material primero'); return; }
+
+  const box = document.getElementById('resultBox');
+  document.getElementById('resultEmpty').style.display = 'none';
+  box.style.display = 'block';
+  document.getElementById('btnGuardarPared').style.display = 'none';
+  ultimoCalculo = null;
+
+  if(mat.tipo === 'esquinero'){
+    const longitud = parseFloat(document.getElementById('wLongitud').value) || 0;
+    if(longitud <= 0){ alert('Ingresa la longitud total de esquinas'); return; }
+    if(longitud > 100) mostrarWarn('Esa longitud es bastante grande (más de 100 m). Revisa que esté en metros y no en centímetros.');
+    const largoPiezaM = mat.largoPieza / 100;
+    const totalConDesp = longitud * (1 + mat.desperdicio/100);
+    const piezas = Math.ceil(totalConDesp / largoPiezaM);
+    box.innerHTML = `
+      <div class="figure-label">Piezas de "${mat.nombre}" a comprar</div>
+      <div class="figure">${piezas} piezas</div>
+      <div class="sub">Longitud a cubrir: ${longitud} m. Con ${mat.desperdicio}% de desperdicio: ${totalConDesp.toFixed(2)} m ÷ ${largoPiezaM} m por pieza.</div>
+    `;
+    ultimoCalculo = {
+      materialNombre: mat.nombre, medidor, cantidad: piezas, unidad: 'piezas',
+      cantidadTexto: `${piezas} piezas`, dimensionTexto: `${longitud} m de esquinas`
+    };
+    document.getElementById('btnGuardarPared').style.display = 'block';
+    return;
+  }
+
+  const anchoPared = parseFloat(document.getElementById('wAncho').value) || 0;
+  const altoPared = parseFloat(document.getElementById('wAlto').value) || 0;
+  if(anchoPared <= 0 || altoPared <= 0){ alert('Ingresa el ancho y el alto de la pared'); return; }
+  if(anchoPared < 20 || altoPared < 20){ mostrarWarn('Esa medida es muy pequeña para una pared (menos de 20 cm). Revisa que no hayas confundido cm con metros.'); }
+  if(anchoPared > 1500 || altoPared > 500){ mostrarWarn('Esa medida es bastante grande. Revisa que esté en centímetros y no en metros.'); }
+
+  let huecos = [];
+  let huecoFueraDeRango = false;
+  document.querySelectorAll('.abertura-row').forEach(row => {
+    const a = parseFloat(row.querySelector('.ab-ancho').value) || 0;
+    const h = parseFloat(row.querySelector('.ab-alto').value) || 0;
+    const x = parseFloat(row.querySelector('.ab-x').value) || 0;
+    const y = parseFloat(row.querySelector('.ab-y').value) || 0;
+    if(a>0 && h>0){
+      const hu = {x1:x, x2:x+a, y1:y, y2:y+h};
+      if(hu.x2 > anchoPared || hu.y2 > altoPared || x < 0 || y < 0) huecoFueraDeRango = true;
+      huecos.push(hu);
+    }
+  });
+  if(huecoFueraDeRango){
+    alert('Una de las zonas tapadas se sale del tamaño de la pared que ingresaste. Revisa esas medidas antes de calcular.');
+    return;
+  }
+
+  if(mat.tipo === 'panel'){
+    const solape = mat.solape || 0;
+    const colEdges = panelEdges(anchoPared, mat.ancho, solape);
+    const rowEdges = panelEdges(altoPared, mat.alto, solape);
+    const cols = colEdges.length;
+    const rows = rowEdges.length;
+    const totalCuadricula = cols*rows;
+
+    let tapadas = 0;
+    const celdasTapadas = [];
+    for(let r=0; r<rows; r++){
+      for(let c=0; c<cols; c++){
+        const celda = {x1:colEdges[c].start, x2:colEdges[c].end, y1:rowEdges[r].start, y2:rowEdges[r].end};
+        const cubierta = huecos.some(hu => hu.x1<=celda.x1 && hu.x2>=celda.x2 && hu.y1<=celda.y1 && hu.y2>=celda.y2);
+        if(cubierta){ tapadas++; celdasTapadas.push({c,r}); }
+      }
+    }
+    const paneles = totalCuadricula - tapadas;
+
+    const notaSolape = solape > 0
+      ? `Se descontó ${solape} cm de traslape por cada unión.`
+      : `No tiene traslape de encaje registrado — si las láminas encajan por pestaña y pierden medida al unirse, agrégalo en el material.`;
+    const notaHuecos = huecos.length
+      ? `Se restaron ${tapadas} lámina(s) que quedan 100% detrás de una zona fija. Cortes pequeños (tomas, interruptores) no restan lámina, solo llevan corte.`
+      : `No marcaste zonas fijas — si hay un mueble u otra cosa que va a tapar la pared para siempre, agrégala para no comprar de más.`;
+
+    box.innerHTML = `
+      <div class="figure-label">Láminas de "${mat.nombre}" a comprar</div>
+      <div class="figure">${paneles} láminas</div>
+      <div class="sub">Cuadrícula completa: ${cols} columnas × ${rows} filas = ${totalCuadricula}. ${notaHuecos}</div>
+      <div class="sub">${notaSolape}</div>
+    `;
+    if(currentPhoto) drawGridOverlay(cols, rows, celdasTapadas);
+
+    ultimoCalculo = {
+      materialNombre: mat.nombre, medidor, cantidad: paneles, unidad: 'láminas',
+      cantidadTexto: `${paneles} láminas`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`,
+      cols, rows
+    };
+    document.getElementById('btnGuardarPared').style.display = 'block';
+
+    if(currentPhoto){
+      document.getElementById('previewSection').style.display = 'block';
+      initPreviewCanvas();
+    }
+
+  } else if(mat.tipo === 'rollo'){
+    const tiras = Math.ceil(anchoPared / mat.ancho);
+    const largoTiraCm = altoPared * (1+mat.desperdicio/100);
+    const metrosTotales = (tiras*largoTiraCm)/100;
+    const rollos = Math.ceil(metrosTotales / (mat.largoRollo/100));
+
+    box.innerHTML = `
+      <div class="figure-label">Rollos de "${mat.nombre}" a comprar</div>
+      <div class="figure">${rollos} rollos</div>
+      <div class="sub">${tiras} tiras de ${(largoTiraCm/100).toFixed(2)} m cada una = ${metrosTotales.toFixed(2)} m totales (incluye ${mat.desperdicio}% de desperdicio). No descuenta huecos automáticamente — si hay una puerta ancha, resta tiras a mano.</div>
+    `;
+    if(currentPhoto) drawGridOverlay(tiras, 1);
+
+    ultimoCalculo = {
+      materialNombre: mat.nombre, medidor, cantidad: rollos, unidad: 'rollos',
+      cantidadTexto: `${rollos} rollos`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`
+    };
+    document.getElementById('btnGuardarPared').style.display = 'block';
+  }
+}
+
+function guardarParedEnProyecto(){
+  if(!ultimoCalculo){ return; }
+  const proyecto = getProyectoActual();
+  if(!proyecto){ alert('Crea o selecciona un proyecto primero (arriba del todo) para guardar esta pared.'); return; }
+
+  const fecha = new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'numeric'});
+  proyecto.paredes.push({ id: nextId++, fecha, ...ultimoCalculo });
+
+  if(!medidores.includes(ultimoCalculo.medidor)) medidores.push(ultimoCalculo.medidor);
+
+  guardarTodo();
+  renderProyectoDetalle();
+  renderMedidoresList();
+
+  document.getElementById('btnGuardarPared').style.display = 'none';
+  document.getElementById('resultBox').style.display = 'none';
+  document.getElementById('resultEmpty').style.display = 'block';
+  ultimoCalculo = null;
+  alert('Pared guardada en el proyecto de ' + proyecto.cliente);
+}
+
+/* ---------- Vista previa con textura (perspectiva aproximada) ---------- */
+let previewPoints = [];
+let previewTextureImg = null;
+let previewCanvasScale = 1;
+
+function handleTextura(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      previewTextureImg = img;
+      document.getElementById('texturaDrop').textContent = 'Textura cargada — toca para cambiarla';
+      initPreviewCanvas();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function initPreviewCanvas(){
+  if(!currentPhoto) return;
+  const canvas = document.getElementById('previewCanvas');
+  const img = currentPhoto.img;
+  const maxW = document.querySelector('.app').clientWidth - 32;
+  previewCanvasScale = maxW / img.width;
+  canvas.width = maxW;
+  canvas.height = img.height * previewCanvasScale;
+  canvas.style.display = 'block';
+  previewPoints = [];
+  document.getElementById('resultCanvas').style.display = 'none';
+  document.getElementById('btnGenerarPreview').disabled = true;
+  actualizarInstruccion();
+  redrawPreviewPoints();
+
+  canvas.onclick = previewCanvasClick;
+}
+
+const ORDEN_PUNTOS = [
+  'Toca la esquina SUPERIOR IZQUIERDA de la zona donde va la lámina',
+  'Ahora toca la esquina SUPERIOR DERECHA',
+  'Ahora toca la esquina INFERIOR DERECHA',
+  'Por último, toca la esquina INFERIOR IZQUIERDA'
+];
+
+function actualizarInstruccion(){
+  const el = document.getElementById('previewInstruccion');
+  if(!previewTextureImg){ el.textContent = 'Sube primero la textura de arriba.'; return; }
+  if(previewPoints.length < 4){ el.textContent = ORDEN_PUNTOS[previewPoints.length]; }
+  else { el.textContent = 'Las 4 esquinas están marcadas. Toca "Generar vista previa".'; }
+}
+
+function previewCanvasClick(evt){
+  if(!previewTextureImg){ alert('Sube primero la foto de la textura/lámina'); return; }
+  if(previewPoints.length >= 4) return;
+  const canvas = document.getElementById('previewCanvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = (evt.clientX - rect.left) * (canvas.width / rect.width);
+  const y = (evt.clientY - rect.top) * (canvas.height / rect.height);
+  previewPoints.push({x, y});
+  redrawPreviewPoints();
+  actualizarInstruccion();
+  if(previewPoints.length === 4) document.getElementById('btnGenerarPreview').disabled = false;
+}
+
+function redrawPreviewPoints(){
+  if(!currentPhoto) return;
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(currentPhoto.img, 0, 0, canvas.width, canvas.height);
+
+  if(previewPoints.length){
+    ctx.strokeStyle = '#B0893A';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    previewPoints.forEach((p,i) => { if(i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y); });
+    if(previewPoints.length === 4) ctx.closePath();
+    ctx.stroke();
+
+    previewPoints.forEach((p,i) => {
+      ctx.fillStyle = '#B0893A';
+      ctx.beginPath(); ctx.arc(p.x,p.y,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px Archivo, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(i+1), p.x, p.y);
+    });
+  }
+}
+
+function reiniciarPuntos(){
+  previewPoints = [];
+  document.getElementById('btnGenerarPreview').disabled = true;
+  document.getElementById('resultCanvas').style.display = 'none';
+  actualizarInstruccion();
+  redrawPreviewPoints();
+}
+
+function bilerp(quad, u, v){
+  const [p0,p1,p2,p3] = quad; // TL, TR, BR, BL
+  const top = {x:p0.x+(p1.x-p0.x)*u, y:p0.y+(p1.y-p0.y)*u};
+  const bottom = {x:p3.x+(p2.x-p3.x)*u, y:p3.y+(p2.y-p3.y)*u};
+  return {x: top.x+(bottom.x-top.x)*v, y: top.y+(bottom.y-top.y)*v};
+}
+
+function drawTexturedCell(ctx, img, sx, sy, sw, sh, p00, p10, p01){
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(p00.x, p00.y);
+  ctx.lineTo(p10.x, p10.y);
+  const p11 = {x: p10.x + (p01.x - p00.x), y: p10.y + (p01.y - p00.y)};
+  ctx.lineTo(p11.x, p11.y);
+  ctx.lineTo(p01.x, p01.y);
+  ctx.closePath();
+  ctx.clip();
+
+  const m11 = (p10.x - p00.x) / sw;
+  const m12 = (p10.y - p00.y) / sw;
+  const m21 = (p01.x - p00.x) / sh;
+  const m22 = (p01.y - p00.y) / sh;
+  const dx = p00.x - (sx*m11 + sy*m21);
+  const dy = p00.y - (sx*m12 + sy*m22);
+  ctx.setTransform(m11, m12, m21, m22, dx, dy);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+
+function warpImageToQuad(ctx, srcCanvas, quad, subdivisions){
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+  const n = subdivisions;
+  for(let j=0; j<n; j++){
+    for(let i=0; i<n; i++){
+      const u0=i/n, u1=(i+1)/n, v0=j/n, v1=(j+1)/n;
+      const p00 = bilerp(quad,u0,v0);
+      const p10 = bilerp(quad,u1,v0);
+      const p01 = bilerp(quad,u0,v1);
+      const sx0 = u0*sw, sy0 = v0*sh, sxw = (u1-u0)*sw, syh = (v1-v0)*sh;
+      drawTexturedCell(ctx, srcCanvas, sx0, sy0, sxw, syh, p00, p10, p01);
+    }
+  }
+}
+
+function buildTiledTexture(cols, rows){
+  const tile = 140;
+  const tileCanvas = document.createElement('canvas');
+  tileCanvas.width = tile*cols;
+  tileCanvas.height = tile*rows;
+  const ctx = tileCanvas.getContext('2d');
+  for(let r=0; r<rows; r++){
+    for(let c=0; c<cols; c++){
+      ctx.drawImage(previewTextureImg, c*tile, r*tile, tile, tile);
+    }
+  }
+  return tileCanvas;
+}
+
+function generarVistaPrevia(){
+  if(previewPoints.length !== 4 || !previewTextureImg || !currentPhoto) return;
+  const cols = (ultimoCalculo && ultimoCalculo.cols) ? ultimoCalculo.cols : 3;
+  const rows = (ultimoCalculo && ultimoCalculo.rows) ? ultimoCalculo.rows : 1;
+
+  const previewCanvas = document.getElementById('previewCanvas');
+  const resultCanvas = document.getElementById('resultCanvas');
+  resultCanvas.width = previewCanvas.width;
+  resultCanvas.height = previewCanvas.height;
+  resultCanvas.style.display = 'block';
+  const ctx = resultCanvas.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.drawImage(currentPhoto.img, 0, 0, resultCanvas.width, resultCanvas.height);
+
+  const tiled = buildTiledTexture(cols, rows);
+  warpImageToQuad(ctx, tiled, previewPoints, 18);
+
+  resultCanvas.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+/* ---------- Inicio ---------- */
+renderProyectoSelect();
+renderProyectoDetalle();
+renderMaterialList();
+renderMaterialSelect();
+renderMedidoresList();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
