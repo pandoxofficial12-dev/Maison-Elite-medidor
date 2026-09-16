@@ -288,36 +288,48 @@ function renderProyectoDetalle(){
     <div class="pared-card">
       <div class="info">
         <b>${p.materialNombre} — ${p.cantidadTexto}</b>
-        <span>${p.dimensionTexto} · medido por ${p.medidor} · ${p.fecha}</span>
+        <span>${p.dimensionTexto} · medido por ${p.medidor} · ${p.fecha}${p.subtotal ? ` · ${p.esEstimado?'desde ':''}$${p.subtotal.toLocaleString()}` : ''}</span>
       </div>
       <button class="btn-icon" onclick="eliminarPared(${p.id})">✕</button>
     </div>
   `).join('') || '<div class="empty-state">Todavía no has guardado ninguna pared en este proyecto.</div>';
 
-  // Total consolidado por material
-  const totales = {};
+  // Cuánto material hay que comprar (SIN precio, eso lo compra el cliente)
+  const cantidades = {};
   proyecto.paredes.forEach(p => {
     const key = p.materialNombre + '|' + p.unidad;
-    if(!totales[key]) totales[key] = {cantidad:0, precioUnitario:p.precioUnitario||0, esEstimado: !!p.esEstimado};
-    totales[key].cantidad += p.cantidad;
+    cantidades[key] = (cantidades[key] || 0) + p.cantidad;
   });
-  const filasTotales = Object.entries(totales).map(([key, t]) => {
+  const filasTotales = Object.entries(cantidades).map(([key, cant]) => {
     const [nombre, unidad] = key.split('|');
-    const sub = t.precioUnitario ? ` — ${t.esEstimado ? 'desde ' : ''}$${(t.cantidad*t.precioUnitario).toLocaleString()}` : '';
-    return `<div class="total-row"><span>${nombre}</span><span>${t.cantidad} ${unidad}${sub}</span></div>`;
+    return `<div class="total-row"><span>${nombre}</span><span>${cant} ${unidad}</span></div>`;
   }).join('') || '<div class="empty-state">Sin materiales todavía.</div>';
 
-  let totalExacto = 0, totalEstimado = 0;
-  Object.values(totales).forEach(t => {
-    const sub = t.cantidad*t.precioUnitario;
-    if(t.esEstimado) totalEstimado += sub; else totalExacto += sub;
+  // Cotización de instalación (mano de obra): suma subtotales, con mínimo de $140.000
+  let subtotalManoObra = 0, subtotalEstimado = 0;
+  proyecto.paredes.forEach(p => {
+    if(p.esEstimado) subtotalEstimado += (p.subtotal||0); else subtotalManoObra += (p.subtotal||0);
   });
+  const TARIFA_MINIMA = 140000;
+  const huboMinimo = subtotalManoObra > 0 && subtotalManoObra < TARIFA_MINIMA;
+  const totalManoObra = subtotalManoObra > 0 ? Math.max(subtotalManoObra, TARIFA_MINIMA) : 0;
+
   let filaCotizacion = '';
-  if(totalExacto > 0){
-    filaCotizacion += `<div class="total-row" style="font-weight:700; border-top:2px solid var(--ink); margin-top:4px; padding-top:8px;"><span>Cotización instalación</span><span>$${totalExacto.toLocaleString()}</span></div>`;
+  if(totalManoObra > 0){
+    filaCotizacion += `<div class="total-row" style="font-weight:700; border-top:2px solid var(--ink); margin-top:4px; padding-top:8px;"><span>Mano de obra${huboMinimo ? ' (tarifa mínima)' : ''}</span><span>$${totalManoObra.toLocaleString()}</span></div>`;
   }
-  if(totalEstimado > 0){
-    filaCotizacion += `<div class="total-row" style="font-weight:700;"><span>+ Diseño / cortes especiales</span><span>desde $${totalEstimado.toLocaleString()}</span></div>`;
+  if(subtotalEstimado > 0){
+    filaCotizacion += `<div class="total-row" style="font-weight:700;"><span>+ Diseño / cortes especiales</span><span>desde $${subtotalEstimado.toLocaleString()}</span></div>`;
+  }
+
+  const tienePanel = proyecto.paredes.some(p => p.unidad === 'láminas');
+  const tieneRollo = proyecto.paredes.some(p => p.unidad === 'rollos');
+  let notaMateriales = '';
+  if(tienePanel || tieneRollo){
+    notaMateriales = `<div class="hint" style="margin-top:8px;">Esto es solo mano de obra. El pegante y los materiales los asume el cliente.
+      ${tienePanel ? '<br>Referencia adhesivo wall panel: desde $21.000/tubo (1 a 3 tubos según ancho).' : ''}
+      ${tieneRollo ? '<br>Referencia pegante papel colgadura: ~$27.000 (rinde ~2 rollos de 5 m).' : ''}
+    </div>`;
   }
 
   el.innerHTML = `
@@ -328,9 +340,12 @@ function renderProyectoDetalle(){
     <div class="hint">Paredes guardadas en este proyecto</div>
     ${filasParedes}
     <div class="divider"></div>
-    <div class="hint">Total a comprar (todas las paredes de este proyecto)</div>
+    <div class="hint">Material a comprar (cantidad, sin precio — eso lo compra el cliente)</div>
     ${filasTotales}
-    ${filaCotizacion}
+    <div class="divider"></div>
+    <div class="hint">Cotización de tu instalación</div>
+    ${filaCotizacion || '<div class="empty-state">Aún no hay mano de obra calculada.</div>'}
+    ${notaMateriales}
     <button class="btn-ghost" style="width:100%; margin-top:12px;" onclick="copiarResumen()">Copiar resumen</button>
     <button class="btn-secondary" onclick="enviarPorWhatsapp()">Enviar por WhatsApp</button>
   `;
@@ -345,22 +360,34 @@ function construirResumenTexto(){
   proyecto.paredes.forEach((p, i) => {
     txt += `${i+1}. ${p.dimensionTexto} — ${p.materialNombre}: ${p.cantidadTexto} (midió ${p.medidor}, ${p.fecha})\n`;
   });
-  const totales = {};
+
+  const cantidades = {};
   proyecto.paredes.forEach(p => {
     const key = p.materialNombre + '|' + p.unidad;
-    if(!totales[key]) totales[key] = {cantidad:0, precioUnitario:p.precioUnitario||0, esEstimado: !!p.esEstimado};
-    totales[key].cantidad += p.cantidad;
+    cantidades[key] = (cantidades[key] || 0) + p.cantidad;
   });
-  txt += `\nTOTAL A COMPRAR:\n`;
-  let totalExacto = 0, totalEstimado = 0;
-  Object.entries(totales).forEach(([key, t]) => {
+  txt += `\nMATERIAL A COMPRAR:\n`;
+  Object.entries(cantidades).forEach(([key, cant]) => {
     const [nombre, unidad] = key.split('|');
-    const sub = t.cantidad*t.precioUnitario;
-    if(t.esEstimado) totalEstimado += sub; else totalExacto += sub;
-    txt += `- ${nombre}: ${t.cantidad} ${unidad}${t.precioUnitario ? ' — '+(t.esEstimado?'desde ':'')+'$'+sub.toLocaleString() : ''}\n`;
+    txt += `- ${nombre}: ${cant} ${unidad}\n`;
   });
-  if(totalExacto > 0) txt += `\nCOTIZACIÓN INSTALACIÓN: $${totalExacto.toLocaleString()}\n`;
-  if(totalEstimado > 0) txt += `+ DISEÑO/CORTES ESPECIALES: desde $${totalEstimado.toLocaleString()} (valor final a definir)\n`;
+
+  let subtotalManoObra = 0, subtotalEstimado = 0;
+  proyecto.paredes.forEach(p => {
+    if(p.esEstimado) subtotalEstimado += (p.subtotal||0); else subtotalManoObra += (p.subtotal||0);
+  });
+  const TARIFA_MINIMA = 140000;
+  const huboMinimo = subtotalManoObra > 0 && subtotalManoObra < TARIFA_MINIMA;
+  const totalManoObra = subtotalManoObra > 0 ? Math.max(subtotalManoObra, TARIFA_MINIMA) : 0;
+
+  if(totalManoObra > 0) txt += `\nCOTIZACIÓN INSTALACIÓN (mano de obra${huboMinimo ? ', tarifa mínima aplicada' : ''}): $${totalManoObra.toLocaleString()}\n`;
+  if(subtotalEstimado > 0) txt += `+ DISEÑO/CORTES ESPECIALES: desde $${subtotalEstimado.toLocaleString()} (valor final a definir)\n`;
+
+  const tienePanel = proyecto.paredes.some(p => p.unidad === 'láminas');
+  const tieneRollo = proyecto.paredes.some(p => p.unidad === 'rollos');
+  txt += `\nEsta cotización es SOLO mano de obra. El pegante y los materiales corren por cuenta del cliente.\n`;
+  if(tienePanel) txt += `Referencia adhesivo wall panel: desde $21.000 por tubo (1 a 3 tubos según ancho de la lámina).\n`;
+  if(tieneRollo) txt += `Referencia pegante papel colgadura: ~$27.000 (rinde aprox. 2 rollos de 5 m).\n`;
   return txt;
 }
 
@@ -382,16 +409,16 @@ function enviarPorWhatsapp(){
 
 function svgRectDiagram(labelAncho, labelAlto){
   return `
-  <svg viewBox="0 0 200 120" style="max-width:190px;display:block;margin:2px auto 14px;">
-    <rect x="28" y="12" width="130" height="76" fill="none" stroke="#B0893A" stroke-width="3"/>
-    <line x1="28" y1="100" x2="158" y2="100" stroke="#2B2419" stroke-width="2"/>
-    <polygon points="28,100 37,95 37,105" fill="#2B2419"/>
-    <polygon points="158,100 149,95 149,105" fill="#2B2419"/>
-    <text x="93" y="114" text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419">${labelAncho}</text>
-    <line x1="174" y1="12" x2="174" y2="88" stroke="#2B2419" stroke-width="2"/>
-    <polygon points="174,12 169,21 179,21" fill="#2B2419"/>
-    <polygon points="174,88 169,79 179,79" fill="#2B2419"/>
-    <text text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419" transform="translate(196,50) rotate(90)">${labelAlto}</text>
+  <svg viewBox="0 0 240 130" style="max-width:210px;display:block;margin:2px auto 14px;overflow:visible;">
+    <rect x="20" y="12" width="130" height="76" fill="none" stroke="#B0893A" stroke-width="3"/>
+    <line x1="20" y1="100" x2="150" y2="100" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="20,100 29,95 29,105" fill="#2B2419"/>
+    <polygon points="150,100 141,95 141,105" fill="#2B2419"/>
+    <text x="85" y="114" text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419">${labelAncho}</text>
+    <line x1="168" y1="12" x2="168" y2="88" stroke="#2B2419" stroke-width="2"/>
+    <polygon points="168,12 163,21 173,21" fill="#2B2419"/>
+    <polygon points="168,88 163,79 173,79" fill="#2B2419"/>
+    <text text-anchor="middle" font-size="9" font-family="Archivo, sans-serif" font-weight="700" fill="#2B2419" transform="translate(190,50) rotate(90)">${labelAlto}</text>
   </svg>`;
 }
 
@@ -429,14 +456,13 @@ function renderAddFormFields(){
     <label for="fFoto" class="photo-drop" id="fFotoDrop">Toca para subir una foto</label>
     <input type="file" id="fFoto" accept="image/*" style="display:none" onchange="handleMatFoto(event)">
   `;
-  const precioLabel = tipo === 'esquinero' ? '¿Cuánto cobras por instalar cada PIEZA? (opcional, $)' :
-                       tipo === 'rollo' ? '¿Cuánto cobras por cada ROLLO instalado? ($)' :
-                       tipo === 'diseno' ? 'Tarifa MÍNIMA que cobras por este trabajo ($)' :
-                       '¿Cuánto cobras por instalar cada LÁMINA? ($)';
-  const precioHint = tipo === 'panel'
-    ? '<div class="hint">Sugerido automático: $24.000 para láminas de hasta 30 cm de ancho, $90.000 para láminas más anchas (mármol, piedra flexible). Puedes cambiarlo si cobras distinto.</div>'
-    : tipo === 'rollo'
-    ? '<div class="hint">Sugerido: $80.000 por rollo (rollo estándar de ~5 m²). Ajústalo si tu rollo rinde distinto.</div>'
+  const precioLabel = tipo === 'esquinero' ? '¿Cuánto cobras por instalar cada PERFIL/ESQUINERO? ($)' :
+                       tipo === 'rollo' ? '¿Cuánto cobras por cada ROLLO instalado (mano de obra)? ($)' :
+                       'Tarifa MÍNIMA que cobras por este trabajo ($)';
+  const precioHint = tipo === 'rollo'
+    ? '<div class="hint">Sugerido: $70.000 por rollo de 5 m (solo mano de obra, sin pegante). Ajústalo si tu rollo rinde distinto.</div>'
+    : tipo === 'esquinero'
+    ? '<div class="hint">Sugerido: $10.000 por unidad instalada (mano de obra).</div>'
     : tipo === 'diseno'
     ? '<div class="hint">Este valor es el mínimo de arranque — el precio final de un diseño o corte especial se acuerda directamente con el cliente según la complejidad.</div>'
     : '';
@@ -457,12 +483,9 @@ function renderAddFormFields(){
       <input type="number" id="fSolape" placeholder="Ej: 0.5" step="0.1">
       <label>% de material extra que quieres comprar de más (desperdicio)</label>
       <input type="number" id="fDesp" placeholder="10">
-      ${precioBlock}
+      <div class="hint">La mano de obra se calcula sola según el ancho de la lámina: hasta 16 cm $16.000 · 20–30 cm $20.000 · 50–99 cm $70.000 · 100 cm o más $100.000 (por lámina, sin pegante ni materiales).</div>
       ${fotoBlock}
     `;
-    document.getElementById('fAncho').addEventListener('input', actualizarPrecioSugeridoPanel);
-    document.getElementById('fPrecio').addEventListener('input', () => { document.getElementById('fPrecio').dataset.editadoManual = 'true'; });
-    actualizarPrecioSugeridoPanel();
   } else if(tipo === 'rollo'){
     el.innerHTML = `
       ${svgRectDiagram('ANCHO DEL ROLLO','LARGO DEL ROLLO')}
@@ -475,7 +498,7 @@ function renderAddFormFields(){
       ${precioBlock}
       ${fotoBlock}
     `;
-    document.getElementById('fPrecio').value = 80000;
+    document.getElementById('fPrecio').value = 70000;
   } else if(tipo === 'diseno'){
     el.innerHTML = `
       <div class="hint">Usa esto para trabajos que no son instalación básica: diseños personalizados, muchos cortes, formas irregulares. No se calcula por medida, se cobra una tarifa mínima de arranque.</div>
@@ -491,6 +514,7 @@ function renderAddFormFields(){
       ${precioBlock}
       ${fotoBlock}
     `;
+    document.getElementById('fPrecio').value = 10000;
   }
   matFotoDataUrl = null;
 }
@@ -525,6 +549,13 @@ function handleMatFoto(evt){
   reader.readAsDataURL(file);
 }
 
+function precioPorAnchoPanel(ancho){
+  if(ancho <= 16) return 16000;
+  if(ancho <= 30) return 20000;
+  if(ancho <= 99) return 70000;
+  return 100000;
+}
+
 function addMaterial(){
   const nombre = document.getElementById('matNombre').value.trim();
   const tipo = document.getElementById('matTipo').value;
@@ -533,19 +564,22 @@ function addMaterial(){
   if(!nombre){ alert('Ponle un nombre al material'); return; }
 
   let mat = {id: nextId++, nombre, tipo, desperdicio};
-  mat.precio = parseFloat(document.getElementById('fPrecio').value) || 0;
   mat.foto = matFotoDataUrl;
   if(tipo === 'panel'){
     mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
     mat.alto = parseFloat(document.getElementById('fAlto').value) || 0;
     mat.solape = parseFloat(document.getElementById('fSolape').value) || 0;
+    mat.precio = precioPorAnchoPanel(mat.ancho); // automático, sin campo manual
   } else if(tipo === 'rollo'){
     mat.ancho = parseFloat(document.getElementById('fAncho').value) || 0;
     mat.largoRollo = parseFloat(document.getElementById('fAlto').value) || 0;
+    mat.precio = parseFloat(document.getElementById('fPrecio').value) || 0;
   } else if(tipo === 'esquinero'){
     mat.largoPieza = parseFloat(document.getElementById('fAncho').value) || 0;
+    mat.precio = parseFloat(document.getElementById('fPrecio').value) || 0;
+  } else {
+    mat.precio = parseFloat(document.getElementById('fPrecio').value) || 0;
   }
-  // tipo 'diseno' no necesita medidas adicionales, solo nombre y tarifa mínima
   materials.push(mat);
   document.getElementById('matNombre').value = '';
   document.getElementById('addForm').classList.remove('open');
@@ -569,7 +603,7 @@ function renderMaterialList(){
     if(m.tipo === 'rollo') detail = `${m.ancho} cm × ${(m.largoRollo/100).toFixed(1)} m · rollo · ${m.desperdicio}% desp.`;
     if(m.tipo === 'esquinero') detail = `${m.largoPieza} cm/pieza · lineal · ${m.desperdicio}% desp.`;
     if(m.tipo === 'diseno') detail = `Diseño / cortes especiales`;
-    if(m.precio) detail += m.tipo === 'diseno' ? ` · desde $${m.precio.toLocaleString()}` : ` · $${m.precio.toLocaleString()} instalación`;
+    if(m.precio) detail += m.tipo === 'diseno' ? ` · desde $${m.precio.toLocaleString()}` : ` · $${m.precio.toLocaleString()} mano de obra`;
     const foto = m.foto
       ? `<img src="${m.foto}" style="width:44px;height:44px;border-radius:6px;object-fit:cover;flex-shrink:0;">`
       : `<div style="width:44px;height:44px;border-radius:6px;background:var(--bg);border:1px solid var(--border);flex-shrink:0;"></div>`;
@@ -610,6 +644,16 @@ function renderWallFields(){
       <label>¿Cuántos trabajos de este tipo vas a cotizar aquí?</label>
       <input type="number" id="wCantidadDiseno" placeholder="Ej: 1" value="1">
     `;
+  } else if(mat.tipo === 'rollo'){
+    el.innerHTML = `
+      ${svgRectDiagram('ANCHO DE LA PARED','ALTO DE LA PARED')}
+      <div class="row2">
+        <div><label>Mide la pared de un extremo al otro (ancho en cm)</label><input type="number" id="wAncho" placeholder="Ej: 320"></div>
+        <div><label>Mide desde el piso hasta donde llega el material (alto en cm)</label><input type="number" id="wAlto" placeholder="Ej: 240"></div>
+      </div>
+      <label>Cortes o detalles especiales en este rollo/pared (opcional, $10.000 c/u)</label>
+      <input type="number" id="wCortesRollo" placeholder="Ej: 0" value="0">
+    `;
   } else {
     el.innerHTML = `
       ${svgRectDiagram('ANCHO DE LA PARED','ALTO DE LA PARED')}
@@ -618,9 +662,14 @@ function renderWallFields(){
         <div><label>Mide desde el piso hasta donde llega el material (alto en cm)</label><input type="number" id="wAlto" placeholder="Ej: 240"></div>
       </div>
       <label>Zonas que quedan tapadas para siempre (muebles fijos, puertas, ventanas) — opcional</label>
-      <div class="hint">No metas tomacorrientes ni interruptores aquí: esos solo llevan un corte, no te ahorran lámina.</div>
+      <div class="hint">No metas tomacorrientes ni interruptores aquí — esos van en el campo de cortes de abajo, no te ahorran lámina.</div>
       <div id="aberturas"></div>
       <button class="btn-ghost" onclick="addAberturaRow()" type="button">+ Agregar zona tapada</button>
+      <div class="divider"></div>
+      <div class="row2">
+        <div><label>Cortes para tomacorriente/interruptor ($15.000 c/u)</label><input type="number" id="wCortesTomas" placeholder="Ej: 0" value="0"></div>
+        <div><label>Cortes longitudinales / ajuste de última lámina ($10.000 c/u)</label><input type="number" id="wCortesLongitud" placeholder="Ej: 0" value="0"></div>
+      </div>
     `;
   }
 }
@@ -740,16 +789,16 @@ function calcular(){
 
   if(mat.tipo === 'diseno'){
     const cantidad = parseInt(document.getElementById('wCantidadDiseno').value) || 1;
-    const totalMin = cantidad * mat.precio;
+    const subtotal = cantidad * mat.precio;
     box.innerHTML = `
       <div class="figure-label">Cotización estimada — "${mat.nombre}"</div>
-      <div class="figure">desde $${totalMin.toLocaleString()}</div>
+      <div class="figure">desde $${subtotal.toLocaleString()}</div>
       <div class="sub">Tarifa mínima de arranque (${cantidad} × $${mat.precio.toLocaleString()}). El valor final se acuerda directamente con el cliente según la complejidad del diseño o los cortes.</div>
     `;
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad, unidad: 'diseño(s)',
       cantidadTexto: `${cantidad} diseño(s)`, dimensionTexto: `Trabajo con diseño / cortes especiales`,
-      precioUnitario: mat.precio, esEstimado: true
+      subtotal, esEstimado: true
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
     return;
@@ -762,15 +811,17 @@ function calcular(){
     const largoPiezaM = mat.largoPieza / 100;
     const totalConDesp = longitud * (1 + mat.desperdicio/100);
     const piezas = Math.ceil(totalConDesp / largoPiezaM);
+    const subtotal = piezas * (mat.precio || 0);
     box.innerHTML = `
       <div class="figure-label">Piezas de "${mat.nombre}" a comprar</div>
       <div class="figure">${piezas} piezas</div>
       <div class="sub">Longitud a cubrir: ${longitud} m. Con ${mat.desperdicio}% de desperdicio: ${totalConDesp.toFixed(2)} m ÷ ${largoPiezaM} m por pieza.</div>
+      ${mat.precio ? `<div class="sub">Mano de obra: ${piezas} × $${mat.precio.toLocaleString()} = $${subtotal.toLocaleString()}</div>` : ''}
     `;
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: piezas, unidad: 'piezas',
       cantidadTexto: `${piezas} piezas`, dimensionTexto: `${longitud} m de esquinas`,
-      precioUnitario: mat.precio || 0
+      subtotal
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
     return;
@@ -818,6 +869,11 @@ function calcular(){
       }
     }
     const paneles = totalCuadricula - tapadas;
+    const cortesTomas = parseInt(document.getElementById('wCortesTomas')?.value) || 0;
+    const cortesLongitud = parseInt(document.getElementById('wCortesLongitud')?.value) || 0;
+    const subtotalLaminas = paneles * (mat.precio || 0);
+    const subtotalCortes = cortesTomas*15000 + cortesLongitud*10000;
+    const subtotal = subtotalLaminas + subtotalCortes;
 
     const notaSolape = solape > 0
       ? `Se descontó ${solape} cm de traslape por cada unión.`
@@ -825,19 +881,27 @@ function calcular(){
     const notaHuecos = huecos.length
       ? `Se restaron ${tapadas} lámina(s) que quedan 100% detrás de una zona fija. Cortes pequeños (tomas, interruptores) no restan lámina, solo llevan corte.`
       : `No marcaste zonas fijas — si hay un mueble u otra cosa que va a tapar la pared para siempre, agrégala para no comprar de más.`;
+    const notaCortes = (cortesTomas>0 || cortesLongitud>0)
+      ? `Cortes: ${cortesTomas} tomacorriente/interruptor ($${(cortesTomas*15000).toLocaleString()}) + ${cortesLongitud} ajuste de lámina ($${(cortesLongitud*10000).toLocaleString()}).`
+      : '';
 
     box.innerHTML = `
       <div class="figure-label">Láminas de "${mat.nombre}" a comprar</div>
       <div class="figure">${paneles} láminas</div>
       <div class="sub">Cuadrícula completa: ${cols} columnas × ${rows} filas = ${totalCuadricula}. ${notaHuecos}</div>
       <div class="sub">${notaSolape}</div>
+      ${notaCortes ? `<div class="sub">${notaCortes}</div>` : ''}
+      <div class="divider"></div>
+      <div class="figure-label">Mano de obra de esta pared</div>
+      <div class="figure" style="font-size:1.3rem;">$${subtotal.toLocaleString()}</div>
+      <div class="sub">${paneles} láminas × $${(mat.precio||0).toLocaleString()} = $${subtotalLaminas.toLocaleString()}${subtotalCortes ? ` + $${subtotalCortes.toLocaleString()} en cortes` : ''}. No incluye pegante ni materiales.</div>
     `;
     if(currentPhoto) drawGridOverlay(cols, rows, celdasTapadas);
 
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: paneles, unidad: 'láminas',
       cantidadTexto: `${paneles} láminas`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`,
-      cols, rows, precioUnitario: mat.precio || 0
+      cols, rows, subtotal
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
 
@@ -846,18 +910,26 @@ function calcular(){
     const largoTiraCm = altoPared * (1+mat.desperdicio/100);
     const metrosTotales = (tiras*largoTiraCm)/100;
     const rollos = Math.ceil(metrosTotales / (mat.largoRollo/100));
+    const cortesRollo = parseInt(document.getElementById('wCortesRollo')?.value) || 0;
+    const subtotalRollos = rollos * (mat.precio || 0);
+    const subtotalCortes = cortesRollo*10000;
+    const subtotal = subtotalRollos + subtotalCortes;
 
     box.innerHTML = `
       <div class="figure-label">Rollos de "${mat.nombre}" a comprar</div>
       <div class="figure">${rollos} rollos</div>
       <div class="sub">${tiras} tiras de ${(largoTiraCm/100).toFixed(2)} m cada una = ${metrosTotales.toFixed(2)} m totales (incluye ${mat.desperdicio}% de desperdicio). No descuenta huecos automáticamente — si hay una puerta ancha, resta tiras a mano.</div>
+      <div class="divider"></div>
+      <div class="figure-label">Mano de obra de esta pared</div>
+      <div class="figure" style="font-size:1.3rem;">$${subtotal.toLocaleString()}</div>
+      <div class="sub">${rollos} rollos × $${(mat.precio||0).toLocaleString()} = $${subtotalRollos.toLocaleString()}${subtotalCortes ? ` + $${subtotalCortes.toLocaleString()} en cortes` : ''}. No incluye pegante.</div>
     `;
     if(currentPhoto) drawGridOverlay(tiras, 1);
 
     ultimoCalculo = {
       materialNombre: mat.nombre, medidor, cantidad: rollos, unidad: 'rollos',
       cantidadTexto: `${rollos} rollos`, dimensionTexto: `Pared ${anchoPared}×${altoPared} cm`,
-      precioUnitario: mat.precio || 0
+      subtotal
     };
     document.getElementById('btnGuardarPared').style.display = 'block';
   }
